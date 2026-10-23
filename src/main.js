@@ -64,16 +64,58 @@ function openLightbox(index){
  d.onkeydown=e=>{if(e.key==='ArrowLeft'){e.preventDefault();index=(index-1+clientPhotos.length)%clientPhotos.length;draw()}else if(e.key==='ArrowRight'){e.preventDefault();index=(index+1)%clientPhotos.length;draw()}};
 }
 
+const adminMenu=[
+  ['collections','▣','Coleções'],
+  ['library','▦','Biblioteca'],
+  ['favorites','☆','Favoritos'],
+  ['homepage','▤','Página inicial'],
+  ['settings','⚙','Configurações'],
+  ['marketing','↗','Compartilhar'],
+];
 function shell(html,admin=false){
- if(admin){
-  app.innerHTML='<div class="studio-shell"><aside class="studio-sidebar"><div class="studio-sidebar-brand">'+brand+'</div><nav><button class="studio-nav active" id="nav-collections">▣ <span>COLEÇÕES</span></button><button class="studio-nav" id="nav-library">▦ <span>BIBLIOTECA</span></button><button class="studio-nav" id="nav-settings">⚙ <span>CONFIGURAÇÕES</span></button></nav><div class="studio-sidebar-footer">G&I AGÊNCIA <small>DO SEU SONHO À SUA MARCA.</small></div></aside><div class="studio-main"><div class="studio-topbar"><span>G&I GALERIAS / PAINEL</span><span>ADMINISTRADOR</span></div>'+html+'</div></div>';
-  document.getElementById('nav-collections').onclick=dashboard;
-  document.getElementById('nav-library').onclick=()=>{dashboard()};
-  document.getElementById('nav-settings').onclick=()=>settingsPage();
- }else app.innerHTML='<header class="site-header"><div class="header-inner">'+brand+'<span class="header-tag">FOTOGRAFIA E MEMÓRIAS</span></div></header>'+html+'<footer class="footer"><span>© 2026 G&I AGÊNCIA</span><span>DO SEU SONHO À SUA MARCA.</span></footer>';
+ if(!admin){
+   app.innerHTML='<header class="site-header"><div class="header-inner">'+brand+'<span class="header-tag">FOTOGRAFIA E MEMÓRIAS</span></div></header>'+html+'<footer class="footer"><span>© 2026 G&I AGÊNCIA</span><span>DO SEU SONHO À SUA MARCA.</span></footer>';
+   return;
+ }
+ const buttons=adminMenu.map(([id,icon,label])=>'<button type="button" class="studio-nav '+(state.nav===id?'active':'')+'" data-menu="'+id+'"><span class="studio-menu-icon">'+icon+'</span><span>'+label+'</span></button>').join('');
+ app.innerHTML='<div class="studio-shell"><aside class="studio-sidebar"><div class="studio-sidebar-brand">'+brand+'</div><nav>'+buttons+'</nav><div class="studio-sidebar-footer">G&I AGÊNCIA<small>FOTOS ORIGINAIS, ACESSO PROTEGIDO</small></div></aside><div class="studio-main"><div class="studio-topbar"><span>CLIENT GALLERY / G&I AGÊNCIA</span><span>ÁREA ADMINISTRATIVA</span></div>'+html+'</div></div>';
+ document.querySelectorAll('[data-menu]').forEach(el=>el.onclick=()=>({
+  collections:dashboard,library:libraryPage,favorites:favoritesPage,
+  homepage:homepagePage,settings:settingsPage,marketing:marketingPage
+ }[el.dataset.menu]||dashboard)());
+}
+async function ensureCollections(){state.galleries=(await api('list')).galleries;return state.galleries}
+function galleryTile(g){
+ const cover=g.coverUrl?'<img loading="lazy" src="'+esc(g.coverUrl)+'" alt="Capa de '+esc(g.title)+'">':'<span class="tile-empty"><img src="/logo-gi.svg" alt=""><small>COLEÇÃO G&I</small></span>';
+ return '<article class="collection-tile"><button class="tile-image" data-open="'+esc(g.id)+'" aria-label="Abrir '+esc(g.title)+'">'+cover+'</button><div class="tile-body"><div><button class="tile-title" data-open="'+esc(g.id)+'">'+esc(g.title)+'</button><p>'+esc(g.client_name||'Cliente')+' · '+esc(date(g.event_date)||'Sem data')+'</p><small>'+Number(g.photo_count||0)+' foto(s) · '+(g.status==='published'?'Publicada':'Rascunho')+'</small></div><button class="tile-star '+(g.starred?'selected':'')+'" data-star="'+esc(g.id)+'" aria-label="'+(g.starred?'Remover dos favoritos':'Adicionar aos favoritos')+'">'+(g.starred?'★':'☆')+'</button></div></article>';
+}
+function wireCollectionTiles(repaint){
+ document.querySelectorAll('[data-open]').forEach(el=>el.onclick=()=>detail(el.dataset.open));
+ document.querySelectorAll('[data-star]').forEach(el=>el.onclick=async()=>{
+  const g=state.galleries.find(x=>x.id===el.dataset.star);
+  if(!g)return;
+  el.disabled=true;
+  try{await api('update',{id:g.id,starred:!g.starred});g.starred=!g.starred;repaint()}catch(err){warn(err);el.disabled=false}
+ });
 }
 async function settingsPage(){
- shell('<main class="admin"><div class="dashboard-intro"><span class="eyebrow">PERSONALIZAÇÃO</span><h1>CONFIGURAÇÕES<span class="dot">.</span></h1><p>As configurações de capa e marca d’água são definidas individualmente em cada coleção.</p></div><div class="notice">Abra uma coleção para escolher seu design de capa e ativar ou desativar a marca d’água na prévia.</div></main>',true);
+ state.nav='settings';
+ try{
+  await ensureCollections();
+  shell('<main class="admin studio-page"><div class="studio-page-heading"><div><h1>Configurações</h1><p>Personalização da G&I Galerias.</p></div></div><div class="settings-tabs"><button data-tab="brand" class="active">Marca</button><button data-tab="watermark">Marca d’água</button><button data-tab="defaults">Predefinições</button></div><section id="settings-content" class="settings-panel"></section></main>',true);
+  const render=tab=>{
+   document.querySelectorAll('[data-tab]').forEach(el=>el.classList.toggle('active',el.dataset.tab===tab));
+   const area=document.getElementById('settings-content');
+   if(tab==='brand')area.innerHTML='<h2>Identidade da marca</h2><p>Logo oficial utilizada no painel e nas galerias.</p><div class="brand-preview"><img src="/logo-gi.svg" alt="Logo G&I Agência"></div><p><strong>G&I AGÊNCIA</strong><br>Do seu sonho à sua marca.</p>';
+   if(tab==='defaults')area.innerHTML='<h2>Predefinições das coleções</h2><p>As novas coleções começam em rascunho, protegidas por senha, e preservam os arquivos originais.</p><p>Você pode escolher quatro estilos de capa ao criar uma coleção e alterar depois.</p>';
+   if(tab==='watermark'){
+    area.innerHTML='<h2>Marca d’água nas prévias</h2><p>Escolha em quais coleções mostrar a assinatura G&I. O download original não é alterado.</p><div class="watermark-settings">'+state.galleries.map(g=>'<label class="watermark-row"><span>'+esc(g.title)+'</span><input type="checkbox" data-mark="'+esc(g.id)+'" '+(g.watermark_enabled?'checked':'')+'></label>').join('')+'</div>';
+    document.querySelectorAll('[data-mark]').forEach(el=>el.onchange=async()=>{el.disabled=true;try{await api('update',{id:el.dataset.mark,watermark_enabled:el.checked});const g=state.galleries.find(x=>x.id===el.dataset.mark);if(g)g.watermark_enabled=el.checked}catch(err){warn(err);el.checked=!el.checked}finally{el.disabled=false}});
+   }
+  };
+  document.querySelectorAll('[data-tab]').forEach(el=>el.onclick=()=>render(el.dataset.tab));
+  render('brand');
+ }catch(err){warn(err);dashboard()}
 }
 function btn(t,id,cls=''){return '<button class="btn '+cls+'" id="'+id+'">'+t+'</button>'}
 const warn=e=>alert(e.message||e);
@@ -82,7 +124,7 @@ async function api(action,body,params={}){const url=new URL('/api/service',locat
 async function publicGallery(password=''){
  try{const {gallery:g,photos}=await api('gallery',{token:linkToken,password});shell('<main class="public '+esc('cover-'+(g.cover_style||'classic'))+'"><section class="hero"><span class="eyebrow">UMA HISTÓRIA EM CADA IMAGEM / G&I</span><div class="hero-split"><div><h1>'+esc(g.title).toUpperCase()+'<span class="dot">.</span></h1><p>'+esc(g.description||'Momentos especiais merecem ser lembrados para sempre.')+'</p></div><div class="hero-meta"><span>GALERIA EXCLUSIVA</span><strong>'+esc(g.client_name||'SEUS MOMENTOS')+'</strong><small>'+esc(date(g.event_date))+'</small><small>'+photos.length+' FOTOS ORIGINAIS</small></div></div></section><section class="gallery-section"><div class="section-head"><div><span class="eyebrow">01 / ACERVO</span><h2>SEUS MOMENTOS</h2></div><span>ALTA RESOLUÇÃO</span></div><div class="client-actions"><span id="favorite-count">0 FAVORITAS</span><button id="favorite-filter" type="button">VER FAVORITAS</button></div><div class="masonry">'+(photos.map((p,i)=>'<div class="photo-card '+(g.watermark_enabled?'watermarked':'')+'" data-photo-id="'+esc(p.id)+'"><button type="button" class="photo-view" data-view-photo="'+i+'" aria-label="Ampliar '+esc(p.name)+'">'+photoPreview(p)+'</button><button type="button" class="favorite-btn" data-favorite="'+esc(p.id)+'" aria-label="Adicionar aos favoritos" aria-pressed="false">♡</button><a class="photo-download" href="'+esc(p.url)+'" target="_blank" rel="noopener noreferrer" download="'+esc(p.name)+'">↓ BAIXAR ORIGINAL</a></div>').join('')||'<div class="notice">Nenhuma foto enviada ainda.</div>')+'</div><p class="gallery-hint">Fotos em qualidade original, sem redimensionamento. Os links de acesso aos arquivos expiram por segurança.</p></section><section class="closing"><span class="eyebrow">G&I AGÊNCIA</span><h2>O MELHOR DOS MOMENTOS<br>MERECE FICAR.</h2></section></main>');setupClientGallery(photos);renderMissingHeicPreviews()}
  catch(e){if(e.status===401){shell('<main class="empty-hero"><span class="eyebrow">ACESSO EXCLUSIVO</span><h1>ESSA GALERIA É PRA VC<span class="dot">.</span></h1><p>Digite a senha recebida da equipe G&I para visualizar e baixar suas fotografias.</p><form id="guest-login" class="guest-form"><label>SENHA DA GALERIA<input type="password" id="guest-password" autocomplete="off" required placeholder="Digite sua senha"></label><button class="btn full" type="submit">DESBLOQUEAR FOTOS ↗</button></form>'+(password?'<p class="danger-text">Senha incorreta. Tente novamente.</p>':'')+'</main>');document.getElementById('guest-login').onsubmit=ev=>{ev.preventDefault();publicGallery(document.getElementById('guest-password').value)}}else shell('<main class="empty-hero"><h1>GALERIA INDISPONÍVEL<span class="dot">.</span></h1><p>Verifique o link ou solicite ajuda à equipe G&I.</p></main>')}}
-function login(){shell('<main class="login-wrap"><div class="login-art"><span class="eyebrow">G&I / CENTRAL DE ENTREGAS</span><h1>MEMÓRIAS.<br>MAIS QUE<br><em>IMAGENS.</em></h1><p>Galerias profissionais, qualidade original e acesso protegido.</p></div><div class="login-panel"><span class="eyebrow">ACESSO ADMINISTRATIVO</span><h2>BEM-VINDO<br>DE VOLTA.</h2><p>Entre com sua senha da equipe G&I.</p><form id="admin-login"><label>SENHA DO ADMINISTRADOR<input id="admin-password" type="password" required autocomplete="current-password" placeholder="Sua senha de acesso"></label><button type="submit" class="btn full">ENTRAR NO PAINEL ↗</button></form></div></main>',true);document.getElementById('admin-login').onsubmit=async e=>{e.preventDefault();try{await api('login',{password:document.getElementById('admin-password').value});await dashboard()}catch(err){warn(err)}}}
+function login(){shell('<main class="login-wrap"><div class="login-art"><span class="eyebrow">G&I / CENTRAL DE ENTREGAS</span><h1>MEMÓRIAS.<br>MAIS QUE<br><em>IMAGENS.</em></h1><p>Galerias profissionais, qualidade original e acesso protegido.</p></div><div class="login-panel"><span class="eyebrow">ACESSO ADMINISTRATIVO</span><h2>BEM-VINDO<br>DE VOLTA.</h2><p>Entre com sua senha da equipe G&I.</p><form id="admin-login"><label>SENHA DO ADMINISTRADOR<input id="admin-password" type="password" required autocomplete="current-password" placeholder="Sua senha de acesso"></label><button type="submit" class="btn full">ENTRAR NO PAINEL ↗</button></form></div></main>',false);document.getElementById('admin-login').onsubmit=async e=>{e.preventDefault();try{await api('login',{password:document.getElementById('admin-password').value});await dashboard()}catch(err){warn(err)}}}
 async function dashboard(){try{state.galleries=(await api('list')).galleries;const gs=state.galleries;const pubs=gs.filter(g=>g.status==='published').length;shell('<main class="admin"><div class="dashboard-intro"><span class="eyebrow">G&I / CENTRAL DE ENTREGAS</span><div class="dash-title"><div><h1>GALERIAS<span class="dot">.</span></h1><p>Organize suas fotografias e compartilhe momentos únicos.</p></div><div class="actions">'+btn('+ NOVA GALERIA','new','primary')+btn('SAIR','logout','outline')+'</div></div></div><div class="stats"><div><small>TOTAL</small><strong>'+gs.length+'</strong></div><div><small>PUBLICADAS</small><strong>'+pubs+'</strong></div><div><small>EM PREPARAÇÃO</small><strong>'+(gs.length-pubs)+'</strong></div></div><div class="section-head"><div><span class="eyebrow">ACERVO G&I</span><h2>EVENTOS E CLIENTES</h2></div></div><div class="event-list">'+(gs.map((g,i)=>'<button class="event-item" data-id="'+esc(g.id)+'"><span class="event-number">'+String(i+1).padStart(2,'0')+'</span><span class="event-main"><strong>'+esc(g.title)+'</strong><small>'+esc(g.client_name)+' · '+esc(date(g.event_date))+' · '+(g.protected?'COM SENHA':'SEM SENHA')+'</small></span><span class="status '+(g.status==='published'?'published':'')+'">'+(g.status==='published'?'PUBLICADA':'RASCUNHO')+'</span><span class="event-arrow">↗</span></button>').join('')||'<div class="notice">Crie sua primeira galeria para começar.</div>')+'</div></main>',true);document.getElementById('new').onclick=createDialog;document.getElementById('logout').onclick=async()=>{await api('logout',{});login()};document.querySelectorAll('[data-id]').forEach(x=>x.onclick=()=>detail(x.dataset.id))}catch(e){warn(e);login()}}
 function createDialog(){
  const d=document.createElement('dialog');d.className='modal wizard-modal';
