@@ -11,7 +11,7 @@ const isHeic=p=>/\.hei[cf]$/i.test(p.name||'');
 const needsHeicPreview=p=>isHeic(p)&&(!p.previewUrl||p.previewUrl===p.url);
 function photoPreview(p){
  const label=esc(p.name);
- if(needsHeicPreview(p))return '<div class="heic-preview" data-original-url="'+esc(p.url)+'"><span>PREPARANDO FOTO HEIC...</span><img alt="'+label+'" hidden></div>';
+ if(needsHeicPreview(p))return '<div class="heic-preview" data-original-url="'+esc(p.previewProxy||p.url)+'"><span>PREPARANDO FOTO HEIC...</span><img alt="'+label+'" hidden></div>';
  return '<img loading="lazy" src="'+esc(p.previewUrl||p.url)+'" alt="'+label+'">';
 }
 async function renderMissingHeicPreviews(){
