@@ -17,10 +17,10 @@ export default async function handler(req,res){
     const token=String(b.token||'');if(!/^[a-f0-9]{64}$/.test(token))return res.status(404).json({error:'Galeria indisponível'});
     const g=(await query("select id,title,client_name,description,event_date,password_hash from gi_galleries where share_token=$1 and status='published'",[token])).rows[0];
     if(!g)return res.status(404).json({error:'Galeria indisponível'});
-    let ok=session?.role==='admin'||(session?.role==='guest'&&session.gallery===g.id);
+    let ok=session?.role==='admin'||(session?.role==='guest'&&session.gallery===g.id&&session.passwordVersion===g.password_hash);
     if(!ok&&g.password_hash&&b.password){ok=equal(hash(String(b.password)),g.password_hash)}
     if(!ok)return res.status(401).json({passwordRequired:true,error:'Digite a senha desta galeria'});
-    if(g.password_hash&&session?.role!=='admin')cookie(res,{role:'guest',gallery:g.id});
+    if(g.password_hash&&session?.role!=='admin')cookie(res,{role:'guest',gallery:g.id,passwordVersion:g.password_hash});
     const rows=(await query('select id,file_name,object_key from gi_photos where gallery_id=$1 order by created_at limit 1000',[g.id])).rows;
     const photos=await Promise.all(rows.map(async p=>({id:p.id,name:p.file_name,url:await signed('get',p.object_key)})));
     return res.json({gallery:{title:g.title,client_name:g.client_name,description:g.description,event_date:g.event_date},photos});
@@ -28,7 +28,7 @@ export default async function handler(req,res){
   if(session?.role!=='admin')return res.status(403).json({error:'Acesso restrito'});
   if(action==='list'&&req.method==='GET')return res.json({galleries:(await query('select id,title,client_name,description,event_date,status,share_token,created_at,case when password_hash is not null then true else false end as protected from gi_galleries order by created_at desc')).rows});
   if(action==='create'&&req.method==='POST'){
-    const title=String(b.title||'').trim().slice(0,150);if(!title)return res.status(400).json({error:'Informe o evento'});
+    const title=String(b.title||'').trim().slice(0,150);if(!b.password||String(b.password).length<8)return res.status(400).json({error:'Informe uma senha com pelo menos 8 caracteres'});if(!title)return res.status(400).json({error:'Informe o evento'});
     const row=(await query('insert into gi_galleries(title,client_name,description,event_date,share_token,password_hash) values($1,$2,$3,$4,$5,$6) returning id',[title,String(b.client_name||'').slice(0,150),String(b.description||'').slice(0,1000),b.event_date||null,random(),b.password?hash(String(b.password)):null])).rows[0];
     return res.json(row);
   }
@@ -41,7 +41,7 @@ export default async function handler(req,res){
   if(action==='update'&&req.method==='POST'){
     const id=b.id;
     if(b.status!==undefined){if(!['draft','published'].includes(b.status))return res.status(400).json({error:'Status inválido'});await query('update gi_galleries set status=$2 where id=$1',[id,b.status])}
-    if(b.password!==undefined){await query('update gi_galleries set password_hash=$2 where id=$1',[id,b.password?hash(String(b.password)):null])}
+    if(b.password!==undefined){if(typeof b.password!=='string'||b.password.length<8)return res.status(400).json({error:'A senha precisa de 8 caracteres ou mais'});await query('update gi_galleries set password_hash=$2 where id=$1',[id,hash(String(b.password))])}
     return res.json({ok:true});
   }
   if(action==='sign-upload'&&req.method==='POST'){
