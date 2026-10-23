@@ -21,8 +21,8 @@ export default async function handler(req,res){
     if(!ok&&g.password_hash&&b.password){ok=equal(hash(String(b.password)),g.password_hash)}
     if(!ok)return res.status(401).json({passwordRequired:true,error:'Digite a senha desta galeria'});
     if(g.password_hash&&session?.role!=='admin')cookie(res,{role:'guest',gallery:g.id,passwordVersion:g.password_hash});
-    const rows=(await query('select id,file_name,object_key from gi_photos where gallery_id=$1 order by created_at limit 1000',[g.id])).rows;
-    const photos=await Promise.all(rows.map(async p=>({id:p.id,name:p.file_name,url:await signed('get',p.object_key)})));
+    const rows=(await query('select id,file_name,object_key,preview_key from gi_photos where gallery_id=$1 order by created_at limit 1000',[g.id])).rows;
+    const photos=await Promise.all(rows.map(async p=>({id:p.id,name:p.file_name,url:await signed('get',p.object_key),previewUrl:p.preview_key?await signed('get',p.preview_key):await signed('get',p.object_key)})));
     return res.json({gallery:{title:g.title,client_name:g.client_name,description:g.description,event_date:g.event_date},photos});
   }
   if(session?.role!=='admin')return res.status(403).json({error:'Acesso restrito'});
@@ -35,8 +35,8 @@ export default async function handler(req,res){
   if(action==='detail'&&req.method==='GET'){
     const gallery=(await query('select id,title,client_name,description,event_date,status,share_token,case when password_hash is not null then true else false end as protected from gi_galleries where id=$1',[req.query.id])).rows[0];
     if(!gallery)return res.status(404).json({error:'Galeria não encontrada'});
-    const photos=(await query('select id,file_name,object_key from gi_photos where gallery_id=$1 order by created_at desc',[gallery.id])).rows;
-    return res.json({gallery,photos:await Promise.all(photos.map(async p=>({id:p.id,name:p.file_name,url:await signed('get',p.object_key)})))});
+    const photos=(await query('select id,file_name,object_key,preview_key from gi_photos where gallery_id=$1 order by created_at desc',[gallery.id])).rows;
+    return res.json({gallery,photos:await Promise.all(photos.map(async p=>({id:p.id,name:p.file_name,url:await signed('get',p.object_key),previewUrl:p.preview_key?await signed('get',p.preview_key):await signed('get',p.object_key)})))});
   }
   if(action==='update'&&req.method==='POST'){
     const id=b.id;
@@ -51,14 +51,22 @@ export default async function handler(req,res){
     const name=String(b.name||'foto').slice(0,180);const objectKey=g.id+'/'+crypto.randomUUID();
     return res.json({key:objectKey,url:await signed('put',objectKey,type)});
   }
+  if(action==='sign-preview'&&req.method==='POST'){
+    const key=String(b.key||'');
+    if(!/^[0-9a-f-]{36}\/[0-9a-f-]{36}$/.test(key))return res.status(400).json({error:'Arquivo inválido'});
+    const g=(await query('select id from gi_galleries where id=$1',[b.id])).rows[0];
+    if(!g||!key.startsWith(g.id+'/'))return res.status(404).json({error:'Galeria não encontrada'});
+    const previewKey=key+'.preview.jpg';
+    return res.json({key:previewKey,url:await signed('put',previewKey,'image/jpeg')});
+  }
   if(action==='confirm-upload'&&req.method==='POST'){
     const key=String(b.key||'');if(!/^[0-9a-f-]{36}\/[0-9a-f-]{36}$/.test(key)||!key.startsWith(b.id+'/'))return res.status(400).json({error:'Arquivo inválido'});
-    await query('insert into gi_photos(gallery_id,file_name,object_key) values($1,$2,$3)',[b.id,String(b.name||'foto').slice(0,180),key]);return res.json({ok:true});
+    const previewKey=b.previewKey===key+'.preview.jpg'?b.previewKey:null;await query('insert into gi_photos(gallery_id,file_name,object_key,preview_key) values($1,$2,$3,$4)',[b.id,String(b.name||'foto').slice(0,180),key,previewKey]);return res.json({ok:true});
   }
   if(action==='delete-photo'&&req.method==='POST'){
-    const p=(await query('select object_key from gi_photos where id=$1',[b.id])).rows[0];
+    const p=(await query('select object_key,preview_key from gi_photos where id=$1',[b.id])).rows[0];
     if(!p)return res.status(404).json({error:'Foto não encontrada'});
-    await remove(p.object_key);await query('delete from gi_photos where id=$1',[b.id]);return res.json({ok:true});
+    await remove(p.object_key);if(p.preview_key)await remove(p.preview_key);await query('delete from gi_photos where id=$1',[b.id]);return res.json({ok:true});
   }
   return res.status(404).json({error:'Rota indisponível'});
  }catch(err){console.error(err);return res.status(500).json({error:'Erro interno. Verifique as configurações.'})}
