@@ -40,27 +40,48 @@ async function createImagePreview(file,type){
  }finally{bitmap.close?.()}
 }
 
-async function renderMissingHeicPreviews(){
- const containers=[...document.querySelectorAll('.heic-preview[data-original-url]')];
- for(const element of containers){
-   if(!element.isConnected)continue;
-   try{
-     const response=await fetch(element.dataset.originalUrl);
-     if(!response.ok)throw Error('Arquivo indisponível');
-     const blob=await response.blob();
-     const converted=await heic2any({blob,toType:'image/jpeg',quality:0.86});
-     if(!element.isConnected)continue;
-     const preview=Array.isArray(converted)?converted[0]:converted;
-     const url=URL.createObjectURL(preview);
-     const img=element.querySelector('img');img.onload=()=>{element.querySelector('span').hidden=true};img.src=url;img.hidden=false;
-     img.addEventListener('error',()=>URL.revokeObjectURL(url),{once:true});
-   }catch(err){
-     if(element.isConnected)element.querySelector('span').textContent='PRÉVIA INDISPONÍVEL · BAIXE O ORIGINAL';
-     console.warn('HEIC preview',err);
-   }
+// Legacy HEIC decoding is scheduled only for photos close to the viewport.
+// Limit simultaneous heavy decodes to avoid saturating mobile browsers.
+function renderMissingHeicPreviews(){
+ const elements=[...document.querySelectorAll('.heic-preview[data-original-url]')];
+ const queue=[];let running=0;
+ async function decode(element){
+  if(!element.isConnected)return;
+  try{
+   const response=await fetch(element.dataset.originalUrl);
+   if(!response.ok)throw Error('Arquivo indisponível');
+   const blob=await response.blob();
+   const converted=await heic2any({blob,toType:'image/jpeg',quality:0.82});
+   if(!element.isConnected)return;
+   const jpeg=Array.isArray(converted)?converted[0]:converted;
+   const url=URL.createObjectURL(jpeg);
+   const img=element.querySelector('img');
+   img.onload=()=>{if(element.isConnected)element.querySelector('span').hidden=true};
+   img.src=url;img.hidden=false;
+   img.addEventListener('error',()=>URL.revokeObjectURL(url),{once:true});
+  }catch(err){
+   if(element.isConnected)element.querySelector('span').textContent='PRÉVIA INDISPONÍVEL · BAIXE O ORIGINAL';
+   console.warn('HEIC preview',err);
+  }
  }
+ function pump(){
+  while(running<2&&queue.length){
+   const element=queue.shift();
+   running++;
+   decode(element).finally(()=>{running--;pump()});
+  }
+ }
+ function add(element){
+  if(element.dataset.previewQueued)return;
+  element.dataset.previewQueued='1';
+  queue.push(element);pump();
+ }
+ if(!('IntersectionObserver' in window)){elements.forEach(add);return}
+ const observer=new IntersectionObserver(entries=>{
+  for(const entry of entries)if(entry.isIntersecting){observer.unobserve(entry.target);add(entry.target)}
+ },{rootMargin:'500px 0px'});
+ elements.forEach(element=>observer.observe(element));
 }
-
 
 let clientPhotos=[],favoriteOnly=false;
 const favoritesKey=()=> 'gi-favorites:'+String(linkToken||'');
