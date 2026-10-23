@@ -10,7 +10,7 @@ export const equal=(a,b)=>a?.length===b?.length&&crypto.timingSafeEqual(Buffer.f
 export const random=()=>crypto.randomBytes(32).toString('hex');
 export const s3=()=>new S3Client({region:process.env.AWS_REGION,endpoint:process.env.AWS_ENDPOINT_URL_S3,forcePathStyle:true,credentials:{accessKeyId:process.env.AWS_ACCESS_KEY_ID,secretAccessKey:process.env.AWS_SECRET_ACCESS_KEY}});
 export const bucket=()=>process.env.STORAGE_BUCKET||'gi-fotos';
-export const signed=(kind,key,ct)=>getSignedUrl(s3(),kind==='put'?new PutObjectCommand({Bucket:bucket(),Key:key,ContentType:ct}):new GetObjectCommand({Bucket:bucket(),Key:key}),{expiresIn:kind==='put'?1800:3600});
+export const signed=(kind,key,ct)=>getSignedUrl(s3(),kind==='put'?new PutObjectCommand({Bucket:bucket(),Key:key,ContentType:ct}):new GetObjectCommand({Bucket:bucket(),Key:key}),{expiresIn:3600});
 export const remove=key=>s3().send(new DeleteObjectCommand({Bucket:bucket(),Key:key}));
 export function token(data){const b=Buffer.from(JSON.stringify(data)).toString('base64url');return b+'.'+crypto.createHmac('sha256',secret()).update(b).digest('base64url')}
 export function verify(s){try{const [b,sig]=s.split('.');const match=crypto.createHmac('sha256',secret()).update(b).digest('base64url');if(!equal(sig,match))return null;const data=JSON.parse(Buffer.from(b,'base64url').toString());if(data.exp<Date.now())return null;return data}catch{return null}}
