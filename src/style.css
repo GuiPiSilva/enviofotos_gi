@@ -49,3 +49,21 @@
 .admin-photo .heic-preview{min-height:175px}
 @media(max-width:850px){.studio-shell{grid-template-columns:70px minmax(0,1fr)}.studio-sidebar-brand{padding:19px 8px}.studio-sidebar-brand .brand-name,.studio-nav span,.studio-sidebar-footer{display:none}.studio-sidebar nav{padding:12px 5px}.studio-nav{justify-content:center;padding:17px 8px}.studio-topbar{padding:17px 20px}.wizard-modal .cover-options{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:540px){.studio-shell{grid-template-columns:1fr}.studio-sidebar{position:static;height:auto;min-height:0}.studio-sidebar-brand{padding:12px 18px}.studio-sidebar-brand .brand-name{display:flex}.studio-sidebar nav{display:flex;gap:5px;padding:5px}.studio-nav{padding:12px}.studio-topbar{display:none}.studio-main .admin{padding:32px 5%}.wizard-modal .modal-body{padding:22px}}
+
+
+/* Client collection cover variations, always branded G&I */
+.public.cover-classic .hero{text-align:center;padding-top:130px;padding-bottom:130px}
+.public.cover-classic .hero-split{justify-content:center;align-items:center;flex-direction:column}
+.public.cover-classic .hero-meta{border-left:0;border-top:1px solid #486478;padding:18px 0 0;align-items:center}
+.public.cover-classic .hero h1{margin:25px auto}
+.public.cover-split .hero{background:linear-gradient(90deg,#061b2b 0%,#0c3851 55%,#b8dae7 55%,#dce9ed 100%)}
+.public.cover-minimal .hero{background:#f6f6f1;color:#08283b;border-bottom:1px solid #d9e4e8}
+.public.cover-minimal .hero p,.public.cover-minimal .hero-meta small,.public.cover-minimal .hero-meta span{color:#557487}
+.public.cover-minimal .hero-meta{border-color:#aec5ce}
+.public.cover-cinema .hero{background:radial-gradient(circle at 72% 20%,#467c92 0%,#122f41 42%,#020e18 100%);text-align:center;padding-top:150px;padding-bottom:150px}
+.public.cover-cinema .hero-split{align-items:center;flex-direction:column}
+.public.cover-cinema .hero h1{letter-spacing:-.03em;text-transform:uppercase}
+.public.cover-cinema .hero-meta{border-left:0;border-top:1px solid #7797a6;padding:18px 0 0;align-items:center}
+.photo-card.watermarked:after{content:'G&I AGÊNCIA';position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) rotate(-22deg);z-index:1;pointer-events:none;color:#fff9;text-shadow:0 1px 8px #0008;font:800 clamp(14px,2.5vw,25px) Manrope,sans-serif;letter-spacing:.18em;white-space:nowrap}
+.photo-card.watermarked .photo-download{z-index:2}
+@media(max-width:760px){.public.cover-split .hero{background:linear-gradient(135deg,#061b2b,#1e5772)}}
