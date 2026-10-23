@@ -17,10 +17,8 @@ export default async function handler(req,res){
     const token=String(b.token||'');if(!/^[a-f0-9]{64}$/.test(token))return res.status(404).json({error:'Galeria indisponível'});
     const g=(await query("select id,title,client_name,description,event_date,password_hash from gi_galleries where share_token=$1 and status='published'",[token])).rows[0];
     if(!g)return res.status(404).json({error:'Galeria indisponível'});
-    let ok=session?.role==='admin'||(session?.role==='guest'&&session.gallery===g.id&&session.passwordVersion===g.password_hash);
-    if(!ok&&g.password_hash&&b.password){ok=equal(hash(String(b.password)),g.password_hash)}
+    const ok=Boolean(g.password_hash&&typeof b.password==='string'&&b.password.length>0&&equal(hash(b.password),g.password_hash));
     if(!ok)return res.status(401).json({passwordRequired:true,error:'Digite a senha desta galeria'});
-    if(g.password_hash&&session?.role!=='admin')cookie(res,{role:'guest',gallery:g.id,passwordVersion:g.password_hash});
     const rows=(await query('select id,file_name,object_key,preview_key from gi_photos where gallery_id=$1 order by created_at limit 1000',[g.id])).rows;
     const photos=await Promise.all(rows.map(async p=>({id:p.id,name:p.file_name,url:await signed('get',p.object_key),previewUrl:p.preview_key?await signed('get',p.preview_key):await signed('get',p.object_key)})));
     return res.json({gallery:{title:g.title,client_name:g.client_name,description:g.description,event_date:g.event_date},photos});
