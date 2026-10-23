@@ -14,8 +14,32 @@ const needsHeicPreview=p=>isHeic(p)&&(!p.previewUrl||p.previewUrl===p.url);
 function photoPreview(p){
  const label=esc(p.name);
  if(needsHeicPreview(p))return '<div class="heic-preview" data-original-url="'+esc(p.previewProxy||p.url)+'"><span>PREPARANDO FOTO HEIC...</span><img alt="'+label+'" hidden></div>';
- return '<img loading="lazy" src="'+esc(p.previewUrl||p.url)+'" alt="'+label+'">';
+ return '<img loading="lazy" decoding="async" src="'+esc(p.previewUrl||p.url)+'" alt="'+label+'" onerror="this.classList.add(\'preview-failed\');this.alt=\'Prévia indisponível. Use o botão Baixar original.\'">';
 }
+// Generates a small JPEG solely for viewing; the uploaded original stays untouched.
+async function createImagePreview(file,type){
+ if(type==='image/tiff')return null;
+ let source=file;
+ if(type==='image/heic'||type==='image/heif'||/\.hei[cf]$/i.test(file.name)){
+   const converted=await heic2any({blob:file,toType:'image/jpeg',quality:0.85});
+   source=Array.isArray(converted)?converted[0]:converted;
+ }
+ const bitmap=await createImageBitmap(source);
+ try{
+   const scale=Math.min(1,1600/Math.max(bitmap.width,bitmap.height));
+   const canvas=document.createElement('canvas');
+   canvas.width=Math.max(1,Math.round(bitmap.width*scale));
+   canvas.height=Math.max(1,Math.round(bitmap.height*scale));
+   const ctx=canvas.getContext('2d',{alpha:false});
+   if(!ctx)throw Error('Canvas indisponível');
+   ctx.drawImage(bitmap,0,0,canvas.width,canvas.height);
+   const preview=await new Promise(resolve=>canvas.toBlob(resolve,'image/jpeg',0.80));
+   canvas.width=canvas.height=0;
+   if(!preview)throw Error('Falha ao preparar miniatura');
+   return preview;
+ }finally{bitmap.close?.()}
+}
+
 async function renderMissingHeicPreviews(){
  const containers=[...document.querySelectorAll('.heic-preview[data-original-url]')];
  for(const element of containers){
@@ -217,7 +241,7 @@ function createDialog(){
  }
  document.body.append(d);d.onclose=()=>d.remove();render();d.showModal();
 }
-async function detail(id){try{const {gallery:g,photos}=await api('detail',undefined,{id});state.active=id;const link=location.origin+'/?g='+g.share_token;shell('<main class="admin"><div class="backbar"><button class="plain" id="back">← TODAS AS GALERIAS</button><span class="status '+(g.status==='published'?'published':'')+'">'+(g.status==='published'?'PUBLICADA':'RASCUNHO')+'</span></div><div class="dash-title detail-title"><div><span class="eyebrow">G&I / GERENCIAMENTO</span><h1>'+esc(g.title).toUpperCase()+'<span class="dot">.</span></h1><p>'+esc(g.client_name)+' · '+esc(date(g.event_date))+'</p></div><div class="actions">'+btn(g.status==='published'?'DESPUBLICAR':'PUBLICAR','publish','primary')+btn('EXCLUIR GALERIA','delete-gallery','danger')+'</div></div><div class="upload"><div><span class="eyebrow">PRESERVAÇÃO DE QUALIDADE</span><h2>ENVIAR ORIGINAIS</h2><p>Sem compressão, sem alterar resolução. Até 200 MB por fotografia.</p></div><label class="btn upload-button">+ SELECIONAR FOTOS<input id="photos" type="file" hidden multiple accept="image/jpeg,image/png,image/webp,image/heic,image/heif,image/tiff,.heic,.heif"></label></div><p id="progress"></p><div class="share-box"><div><span class="eyebrow">LINK EXCLUSIVO DO CLIENTE</span><p class="share-url">'+esc(link)+'</p><small>'+(g.protected?'Protegida por senha':'Atenção: galeria sem senha')+'. Somente publicada pode ser acessada.</small></div>'+btn('COPIAR LINK','copy','outline')+'</div><div class="share-box"><div><span class="eyebrow">SEGURANÇA</span><p>Senha individual da galeria</p><small>Troque sempre que necessário, sem alterar o link.</small></div><div class="actions"><input id="gallery-password" type="text" minlength="8" placeholder="Nova senha (mín. 8 caracteres)">'+btn('SALVAR SENHA','save-password','outline')+'</div></div><div class="share-box"><div><span class="eyebrow">DESIGN DA COLEÇÃO</span><p>Estilo de capa e marca d’água na visualização</p><small>O arquivo original para download nunca recebe marca d’água.</small></div><div class="actions"><select id="cover-style" aria-label="Estilo de capa"><option value="classic">Clássica</option><option value="split">Dividida</option><option value="minimal">Minimalista</option><option value="cinema">Cinemática</option></select><label class="toggle-label"><input type="checkbox" id="watermark" '+(g.watermark_enabled?'checked':'')+'> Marca d’água</label>'+btn('SALVAR DESIGN','save-design','outline')+'</div></div><div class="section-head"><div><span class="eyebrow">FOTOS ORIGINAIS</span><h2>ARQUIVOS ENVIADOS</h2></div><span>'+photos.length+' FOTOS</span></div><div class="admin-photos">'+(photos.map(p=>'<div class="admin-photo">'+photoPreview(p)+'<div><span>'+esc(p.name)+'</span><button class="plain cover-photo-btn" data-cover-photo="'+esc(p.id)+'">'+(g.cover_photo_id===p.id?'★ CAPA':'DEFINIR CAPA')+'</button><button class="plain danger-text" data-photo="'+esc(p.id)+'">EXCLUIR</button></div></div>').join('')||'<div class="notice">Nenhuma foto cadastrada.</div>')+'</div></main>',true);renderMissingHeicPreviews();
+async function detail(id){try{const {gallery:g,photos}=await api('detail',undefined,{id});state.active=id;const link=location.origin+'/?g='+g.share_token;shell('<main class="admin"><div class="backbar"><button class="plain" id="back">← TODAS AS GALERIAS</button><span class="status '+(g.status==='published'?'published':'')+'">'+(g.status==='published'?'PUBLICADA':'RASCUNHO')+'</span></div><div class="dash-title detail-title"><div><span class="eyebrow">G&I / GERENCIAMENTO</span><h1>'+esc(g.title).toUpperCase()+'<span class="dot">.</span></h1><p>'+esc(g.client_name)+' · '+esc(date(g.event_date))+'</p></div><div class="actions">'+btn(g.status==='published'?'DESPUBLICAR':'PUBLICAR','publish','primary')+btn('EXCLUIR GALERIA','delete-gallery','danger')+'</div></div><div class="upload"><div><span class="eyebrow">PRESERVAÇÃO DE QUALIDADE</span><h2>ENVIAR ORIGINAIS</h2><p>Sem compressão, sem alterar resolução. Até 1 GB por fotografia.</p></div><label class="btn upload-button">+ SELECIONAR FOTOS<input id="photos" type="file" hidden multiple accept="image/jpeg,image/png,image/webp,image/heic,image/heif,image/tiff,.heic,.heif"></label></div><p id="progress"></p><div class="share-box"><div><span class="eyebrow">LINK EXCLUSIVO DO CLIENTE</span><p class="share-url">'+esc(link)+'</p><small>'+(g.protected?'Protegida por senha':'Atenção: galeria sem senha')+'. Somente publicada pode ser acessada.</small></div>'+btn('COPIAR LINK','copy','outline')+'</div><div class="share-box"><div><span class="eyebrow">SEGURANÇA</span><p>Senha individual da galeria</p><small>Troque sempre que necessário, sem alterar o link.</small></div><div class="actions"><input id="gallery-password" type="text" minlength="8" placeholder="Nova senha (mín. 8 caracteres)">'+btn('SALVAR SENHA','save-password','outline')+'</div></div><div class="share-box"><div><span class="eyebrow">DESIGN DA COLEÇÃO</span><p>Estilo de capa e marca d’água na visualização</p><small>O arquivo original para download nunca recebe marca d’água.</small></div><div class="actions"><select id="cover-style" aria-label="Estilo de capa"><option value="classic">Clássica</option><option value="split">Dividida</option><option value="minimal">Minimalista</option><option value="cinema">Cinemática</option></select><label class="toggle-label"><input type="checkbox" id="watermark" '+(g.watermark_enabled?'checked':'')+'> Marca d’água</label>'+btn('SALVAR DESIGN','save-design','outline')+'</div></div><div class="section-head"><div><span class="eyebrow">FOTOS ORIGINAIS</span><h2>ARQUIVOS ENVIADOS</h2></div><span>'+photos.length+' FOTOS</span></div><div class="admin-photos">'+(photos.map(p=>'<div class="admin-photo">'+photoPreview(p)+'<div><span>'+esc(p.name)+'</span><button class="plain cover-photo-btn" data-cover-photo="'+esc(p.id)+'">'+(g.cover_photo_id===p.id?'★ CAPA':'DEFINIR CAPA')+'</button><button class="plain danger-text" data-photo="'+esc(p.id)+'">EXCLUIR</button></div></div>').join('')||'<div class="notice">Nenhuma foto cadastrada.</div>')+'</div></main>',true);renderMissingHeicPreviews();
  document.getElementById('cover-style').value=g.cover_style||'classic';
  document.getElementById('save-design').onclick=async()=>{try{await api('update',{id,cover_style:document.getElementById('cover-style').value,watermark_enabled:document.getElementById('watermark').checked});notify('Design atualizado');detail(id)}catch(err){warn(err)}};
  document.getElementById('back').onclick=dashboard;
@@ -234,18 +258,48 @@ async function detail(id){try{const {gallery:g,photos}=await api('detail',undefi
  document.getElementById('save-password').onclick=async()=>{const password=document.getElementById('gallery-password').value;if(password.length<8)return notify('Informe uma senha de pelo menos 8 caracteres.');try{await api('update',{id,password});notify('Senha atualizada');detail(id)}catch(e){warn(e)}};
  document.querySelectorAll('[data-cover-photo]').forEach(el=>el.onclick=async()=>{el.disabled=true;try{await api('update',{id,cover_photo_id:el.dataset.coverPhoto});notify('Foto de capa definida');detail(id)}catch(err){warn(err);el.disabled=false}});
   document.querySelectorAll('[data-photo]').forEach(el=>el.onclick=async()=>{if(!confirm('Excluir esta foto permanentemente?'))return;try{await api('delete-photo',{id:el.dataset.photo});detail(id)}catch(e){warn(e)}});
- document.getElementById('photos').onchange=async e=>{const list=[...e.target.files];const progress=document.getElementById('progress');let ok=0;for(let i=0;i<list.length;i++){const file=list[i];try{progress.textContent='Enviando '+(i+1)+'/'+list.length+': '+file.name;if(file.size>200*1024*1024)throw Error('Limite de 200 MB por arquivo');const s=await api('sign-upload',{id,name:file.name,type:(file.type||(/\.hei[cf]$/i.test(file.name)?'image/heic':'')),size:file.size});const up=await fetch(s.url,{method:'PUT',headers:{'Content-Type':(file.type||(/\.hei[cf]$/i.test(file.name)?'image/heic':''))},body:file});if(!up.ok)throw Error('O armazenamento recusou o envio');let previewKey=null;
- if(/\.hei[cf]$/i.test(file.name)||['image/heic','image/heif'].includes(file.type)){
-   try{
-     progress.textContent='Gerando prévia HEIC: '+file.name;
-     const converted=await heic2any({blob:file,toType:'image/jpeg',quality:0.92});
-     const preview=Array.isArray(converted)?converted[0]:converted;
-     const signedPreview=await api('sign-preview',{id,key:s.key});
-     const previewUpload=await fetch(signedPreview.url,{method:'PUT',headers:{'Content-Type':'image/jpeg'},body:preview});
-     if(!previewUpload.ok)throw Error('Falha ao enviar prévia');
-     previewKey=signedPreview.key;
-   }catch(previewError){console.warn('Prévia HEIC não disponível',previewError)}
- }
- await api('confirm-upload',{id,key:s.key,name:file.name,previewKey});ok++}catch(err){warn(new Error(file.name+': '+err.message))}}notify(ok+' fotos enviadas sem compressão.');detail(id)};
+ document.getElementById('photos').onchange=async e=>{
+  const list=[...e.target.files];
+  if(!list.length)return;
+  const picker=e.target, progress=document.getElementById('progress');
+  picker.disabled=true;
+  let ok=0,done=0,cursor=0;
+  const errors=[];
+  const resolveType=file=>file.type||(/\.hei[cf]$/i.test(file.name)?'image/heic':/\.jpe?g$/i.test(file.name)?'image/jpeg':/\.png$/i.test(file.name)?'image/png':/\.webp$/i.test(file.name)?'image/webp':/\.tiff?$/i.test(file.name)?'image/tiff':'');
+  const work=async()=>{
+   while(true){
+    const position=cursor++;
+    if(position>=list.length)return;
+    const file=list[position],type=resolveType(file);
+    try{
+     progress.textContent='Enviando '+file.name+' · '+done+'/'+list.length+' concluídas';
+     if(file.size>1024*1024*1024)throw Error('Limite de 1 GB por foto');
+     if(file.size<=0)throw Error('Arquivo vazio');
+     const upload=await api('sign-upload',{id,name:file.name,type,size:file.size});
+     const response=await fetch(upload.url,{method:'PUT',headers:{'Content-Type':type},body:file});
+     if(!response.ok)throw Error('Armazenamento recusou envio (HTTP '+response.status+')');
+     let previewKey=null;
+     try{
+      progress.textContent='Preparando miniatura: '+file.name;
+      const preview=await createImagePreview(file,type);
+      if(preview){
+       const signedPreview=await api('sign-preview',{id,key:upload.key});
+       const sentPreview=await fetch(signedPreview.url,{method:'PUT',headers:{'Content-Type':'image/jpeg'},body:preview});
+       if(!sentPreview.ok)throw Error('Falha ao salvar a miniatura');
+       previewKey=signedPreview.key;
+      }
+     }catch(previewError){console.warn('Miniatura será criada quando a galeria abrir:',file.name,previewError)}
+     await api('confirm-upload',{id,key:upload.key,name:file.name,previewKey});
+     ok++;
+    }catch(err){errors.push(file.name+': '+(err.message||'Erro de envio'))}
+    finally{done++;progress.textContent=done+'/'+list.length+' processadas · '+ok+' enviadas';}
+   }
+  };
+  try{
+   await Promise.all(Array.from({length:Math.min(2,list.length)},()=>work()));
+   notify(ok+' de '+list.length+' fotos enviadas. Os originais permanecem sem compressão.'+(errors.length?'\\n\\nFalhas:\\n'+errors.slice(0,8).join('\\n'):''));
+   await detail(id);
+  }finally{picker.disabled=false}
+ };
  }catch(e){warn(e);dashboard()}}
 if(linkToken)publicGallery();else api('session').then(r=>r.admin?dashboard():login()).catch(()=>login());
