@@ -63,6 +63,20 @@ export default async function handler(req,res){
     const key=String(b.key||'');if(!/^[0-9a-f-]{36}\/[0-9a-f-]{36}$/.test(key)||!key.startsWith(b.id+'/'))return res.status(400).json({error:'Arquivo inválido'});
     const previewKey=b.previewKey===key+'.preview.jpg'?b.previewKey:null;await query('insert into gi_photos(gallery_id,file_name,object_key,preview_key) values($1,$2,$3,$4)',[b.id,String(b.name||'foto').slice(0,180),key,previewKey]);return res.json({ok:true});
   }
+  if(action==='delete-gallery'&&req.method==='POST'){
+    const id=String(b.id||'');
+    if(!/^[0-9a-f-]{36}$/.test(id))return res.status(400).json({error:'Galeria inválida'});
+    const gallery=(await query('select id,title from gi_galleries where id=$1',[id])).rows[0];
+    if(!gallery)return res.status(404).json({error:'Galeria não encontrada'});
+    if(b.confirmTitle!==gallery.title)return res.status(400).json({error:'Confirme o nome exato da galeria'});
+    const photos=(await query('select object_key,preview_key from gi_photos where gallery_id=$1',[id])).rows;
+    for(const p of photos){
+      await remove(p.object_key);
+      if(p.preview_key)await remove(p.preview_key);
+    }
+    await query('delete from gi_galleries where id=$1',[id]);
+    return res.json({ok:true,deletedPhotos:photos.length});
+  }
   if(action==='delete-photo'&&req.method==='POST'){
     const p=(await query('select object_key,preview_key from gi_photos where id=$1',[b.id])).rows[0];
     if(!p)return res.status(404).json({error:'Foto não encontrada'});
