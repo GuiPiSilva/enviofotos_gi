@@ -41,7 +41,7 @@ export default async function handler(req,res){
     const gallery=(await query('select id,title,client_name,description,event_date,status,share_token,cover_style,cover_photo_id,watermark_enabled,starred,case when password_hash is not null then true else false end as protected from gi_galleries where id=$1',[req.query.id])).rows[0];
     if(!gallery)return res.status(404).json({error:'Galeria não encontrada'});
     const photos=(await query('select id,file_name,object_key,preview_key from gi_photos where gallery_id=$1 order by created_at desc',[gallery.id])).rows;
-    return res.json({gallery,photos:await Promise.all(photos.map(async p=>({id:p.id,name:p.file_name,url:await signed('get',p.object_key),previewUrl:p.preview_key?await signed('get',p.preview_key):(/\.hei[cf]$/i.test(p.file_name)?await signed('get',p.object_key):thumbUrl(p.object_key)),previewProxy:!p.preview_key&&/\.hei[cf]$/i.test(p.file_name)?heicPreviewUrl(p.object_key):null})))});
+    return res.json({gallery,photos:await Promise.all(photos.map(async p=>({id:p.id,name:p.file_name,objectKey:p.object_key,hasPreview:Boolean(p.preview_key),url:await signed('get',p.object_key),previewUrl:p.preview_key?await signed('get',p.preview_key):(/\.hei[cf]$/i.test(p.file_name)?await signed('get',p.object_key):thumbUrl(p.object_key)),previewProxy:!p.preview_key&&/\.hei[cf]$/i.test(p.file_name)?heicPreviewUrl(p.object_key):null})))});
   }
   if(action==='update'&&req.method==='POST'){
     const id=b.id;
@@ -67,6 +67,16 @@ export default async function handler(req,res){
     if(!g||!key.startsWith(g.id+'/'))return res.status(404).json({error:'Galeria não encontrada'});
     const previewKey=key+'.preview.jpg';
     return res.json({key:previewKey,url:await signed('put',previewKey,'image/jpeg')});
+  }
+  if(action==='confirm-preview'&&req.method==='POST'){
+    const id=String(b.id||'');
+    const key=String(b.key||'');
+    if(!/^[a-f0-9-]{36}$/.test(id)||!/^[a-f0-9-]{36}\/[a-f0-9-]{36}$/.test(key)||!key.startsWith(id+'/')||b.previewKey!==key+'.preview.jpg'){
+      return res.status(400).json({error:'Miniatura inválida'});
+    }
+    const result=await query('update gi_photos set preview_key=$3 where gallery_id=$1 and object_key=$2 returning id',[id,key,b.previewKey]);
+    if(!result.rowCount)return res.status(404).json({error:'Foto não encontrada'});
+    return res.json({ok:true});
   }
   if(action==='confirm-upload'&&req.method==='POST'){
     const key=String(b.key||'');if(!/^[0-9a-f-]{36}\/[0-9a-f-]{36}$/.test(key)||!key.startsWith(b.id+'/'))return res.status(400).json({error:'Arquivo inválido'});
