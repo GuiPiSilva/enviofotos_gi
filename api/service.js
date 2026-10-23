@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import {query,hash,equal,random,auth,cookie,verify,config,signed,remove} from './_lib.js';
+import {query,hash,equal,random,auth,cookie,verify,config,signed,remove,heicPreviewUrl} from './_lib.js';
 export default async function handler(req,res){
  res.setHeader('Cache-Control','no-store');
  if(!config())return res.status(503).json({error:'Configure Neon, Storage e credenciais na Vercel'});
@@ -20,7 +20,7 @@ export default async function handler(req,res){
     const ok=Boolean(g.password_hash&&typeof b.password==='string'&&b.password.length>0&&equal(hash(b.password),g.password_hash));
     if(!ok)return res.status(401).json({passwordRequired:true,error:'Digite a senha desta galeria'});
     const rows=(await query('select id,file_name,object_key,preview_key from gi_photos where gallery_id=$1 order by created_at limit 1000',[g.id])).rows;
-    const photos=await Promise.all(rows.map(async p=>({id:p.id,name:p.file_name,url:await signed('get',p.object_key),previewUrl:p.preview_key?await signed('get',p.preview_key):await signed('get',p.object_key)})));
+    const photos=await Promise.all(rows.map(async p=>({id:p.id,name:p.file_name,url:await signed('get',p.object_key),previewUrl:p.preview_key?await signed('get',p.preview_key):await signed('get',p.object_key),previewProxy:!p.preview_key&&/\.hei[cf]$/i.test(p.file_name)?heicPreviewUrl(p.object_key):null})));
     return res.json({gallery:{title:g.title,client_name:g.client_name,description:g.description,event_date:g.event_date,cover_style:g.cover_style,cover_photo_id:g.cover_photo_id,watermark_enabled:g.watermark_enabled},photos});
   }
   if(session?.role!=='admin')return res.status(403).json({error:'Acesso restrito'});
@@ -30,7 +30,7 @@ export default async function handler(req,res){
   }
   if(action==='library'&&req.method==='GET'){
     const rows=(await query('select p.id,p.file_name,p.object_key,p.preview_key,p.gallery_id,g.title as gallery_title from gi_photos p join gi_galleries g on g.id=p.gallery_id order by p.created_at desc limit 400')).rows;
-    return res.json({photos:await Promise.all(rows.map(async p=>({id:p.id,name:p.file_name,gallery_id:p.gallery_id,gallery_title:p.gallery_title,url:await signed('get',p.object_key),previewUrl:p.preview_key?await signed('get',p.preview_key):await signed('get',p.object_key)})))});
+    return res.json({photos:await Promise.all(rows.map(async p=>({id:p.id,name:p.file_name,gallery_id:p.gallery_id,gallery_title:p.gallery_title,url:await signed('get',p.object_key),previewUrl:p.preview_key?await signed('get',p.preview_key):await signed('get',p.object_key),previewProxy:!p.preview_key&&/\.hei[cf]$/i.test(p.file_name)?heicPreviewUrl(p.object_key):null})))});
   }
   if(action==='create'&&req.method==='POST'){
     const title=String(b.title||'').trim().slice(0,150);if(!b.password||String(b.password).length<8)return res.status(400).json({error:'Informe uma senha com pelo menos 8 caracteres'});if(!title)return res.status(400).json({error:'Informe o evento'});
@@ -41,7 +41,7 @@ export default async function handler(req,res){
     const gallery=(await query('select id,title,client_name,description,event_date,status,share_token,cover_style,cover_photo_id,watermark_enabled,starred,case when password_hash is not null then true else false end as protected from gi_galleries where id=$1',[req.query.id])).rows[0];
     if(!gallery)return res.status(404).json({error:'Galeria não encontrada'});
     const photos=(await query('select id,file_name,object_key,preview_key from gi_photos where gallery_id=$1 order by created_at desc',[gallery.id])).rows;
-    return res.json({gallery,photos:await Promise.all(photos.map(async p=>({id:p.id,name:p.file_name,url:await signed('get',p.object_key),previewUrl:p.preview_key?await signed('get',p.preview_key):await signed('get',p.object_key)})))});
+    return res.json({gallery,photos:await Promise.all(photos.map(async p=>({id:p.id,name:p.file_name,url:await signed('get',p.object_key),previewUrl:p.preview_key?await signed('get',p.preview_key):await signed('get',p.object_key),previewProxy:!p.preview_key&&/\.hei[cf]$/i.test(p.file_name)?heicPreviewUrl(p.object_key):null})))});
   }
   if(action==='update'&&req.method==='POST'){
     const id=b.id;
