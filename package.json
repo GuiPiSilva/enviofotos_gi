@@ -13,7 +13,8 @@
     "@aws-sdk/s3-request-presigner": "3.821.0",
     "pg": "8.16.3",
     "scrypt-js": "3.0.1",
-    "heic2any": "0.0.4"
+    "heic2any": "0.0.4",
+    "sharp": "0.34.4"
   },
   "devDependencies": {
     "vite": "6.3.5"
