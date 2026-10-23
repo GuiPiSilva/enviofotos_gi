@@ -6,6 +6,7 @@ const linkToken=new URLSearchParams(location.search).get('g');
 const logo='/logo-gi.svg';
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const brand='<a href="/" class="brand"><img src="'+logo+'" alt="Símbolo oficial G&I Agência" class="official-logo"><span class="brand-name">G&I AGÊNCIA <small>GALERIAS</small></span></a>';
+const clientBrand='<div class="brand" aria-label="G&I Agência"><img src="'+logo+'" alt="Símbolo oficial G&I Agência" class="official-logo"><span class="brand-name">G&I AGÊNCIA <small>GALERIAS</small></span></div>';
 const date=x=>x?new Date(x.slice(0,10)+'T12:00:00').toLocaleDateString('pt-BR'):'';
 const state={galleries:[],active:null};
 const isHeic=p=>/\.hei[cf]$/i.test(p.name||'');
@@ -75,7 +76,7 @@ const adminMenu=[
 ];
 function shell(html,admin=false){
  if(!admin){
-   app.innerHTML='<header class="site-header"><div class="header-inner">'+brand+'<span class="header-tag">FOTOGRAFIA E MEMÓRIAS</span></div></header>'+html+'<footer class="footer"><span>© 2026 G&I AGÊNCIA</span><span>DO SEU SONHO À SUA MARCA.</span></footer>';
+   app.innerHTML='<header class="site-header"><div class="header-inner">'+clientBrand+'<span class="header-tag">FOTOGRAFIA E MEMÓRIAS</span></div></header>'+html+'<footer class="footer"><span>© 2026 G&I AGÊNCIA</span><span>DO SEU SONHO À SUA MARCA.</span></footer>';
    return;
  }
  const buttons=adminMenu.map(([id,icon,label])=>'<button type="button" class="studio-nav '+(state.nav===id?'active':'')+'" data-menu="'+id+'"><span class="studio-menu-icon">'+icon+'</span><span>'+label+'</span></button>').join('');
