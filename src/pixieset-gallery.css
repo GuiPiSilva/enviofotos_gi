@@ -45,3 +45,18 @@
 .photo-lightbox .lightbox-bottom{background:#16191b}
 @media(max-width:650px){.site-header{height:64px}.public .hero,.public .hero.has-photo{min-height:74vh;padding:85px 22px}.public .hero h1{font-size:clamp(48px,12vw,75px)!important}.public .gallery-section{padding:55px 14px 65px}.public .masonry{columns:2 140px;column-gap:8px}.public .photo-card{margin-bottom:8px}.public .photo-card .favorite-btn{opacity:1;width:32px;height:32px;right:7px;top:7px}.public .photo-card .photo-download{opacity:1;font-size:9px;padding:7px}.public .client-actions{justify-content:space-between}.public .hero-meta{flex-wrap:wrap}.public .closing{padding:55px 20px}}
 @media(hover:none){.public .photo-card .favorite-btn,.public .photo-card .photo-download{opacity:1}}
+
+/* Guest collection refinement */
+.public .hero,.public.cover-classic .hero,.public.cover-minimal .hero,.public.cover-split .hero,.public.cover-cinema .hero,.public .hero.has-photo{min-height:calc(100svh - 74px);display:flex;align-items:center;justify-content:center;flex-direction:column;padding:80px 20px;position:relative}
+.public .hero .hero-split{z-index:2;position:relative;display:flex;flex-direction:column;align-items:center;text-align:center;justify-content:center;gap:0}
+.public .hero .hero-split h1{font:400 clamp(55px,8vw,112px)/1.1 Georgia,serif!important;letter-spacing:-.04em!important;text-transform:none!important;margin:0 auto 24px!important}
+.public .hero .hero-meta{border:0!important;display:flex!important;justify-content:center;align-items:center;padding:0!important;min-width:0}
+.public .hero .hero-meta small{display:block!important;font:400 13px 'DM Sans',sans-serif!important;letter-spacing:.06em!important;color:white!important;text-transform:none}
+.public .hero .hero-gallery-link{display:inline-block;margin-top:35px;padding:16px 40px;text-transform:none;letter-spacing:0;font:500 13px 'DM Sans',sans-serif}
+.public .gallery-section{padding-top:52px}
+.public .section-head{text-align:left;align-items:flex-start;margin:0 0 28px}
+.public .section-head h2{font:500 20px 'DM Sans',sans-serif!important;letter-spacing:0!important;margin:0!important}
+.public .masonry{column-gap:9px}
+.public .photo-card{margin-bottom:9px}
+.public .client-cover-image img{object-position:center}
+@media(max-width:700px){.public .hero,.public .hero.has-photo{min-height:calc(85svh - 64px)}.public .gallery-section{padding-top:30px}.public .masonry{column-gap:6px}.public .photo-card{margin-bottom:6px}}
