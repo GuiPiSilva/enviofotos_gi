@@ -1,7 +1,7 @@
 import './style.css';
 const app=document.getElementById('app');
 const linkToken=new URLSearchParams(location.search).get('g');
-const logo='https://raw.githubusercontent.com/GuiPiSilva/G-I_site/main/assets/gi-symbol.svg';
+const logo='/logo-gi.svg';
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const brand='<a href="/" class="brand"><img src="'+logo+'" alt="Símbolo oficial G&I Agência" class="official-logo"><span class="brand-name">G&I AGÊNCIA <small>GALERIAS</small></span></a>';
 const date=x=>x?new Date(x.slice(0,10)+'T12:00:00').toLocaleDateString('pt-BR'):'';
