@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Criar senha do ADM | G&I Galerias</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box}body{margin:0;background:#edf2f4;color:#0b2839;font-family:Manrope,Arial,sans-serif}
+header{background:#071b2b;color:#fff;padding:19px 6%;display:flex;align-items:center;gap:16px}header img{width:72px;height:48px}header span{font-weight:800;letter-spacing:.14em}
+main{max-width:780px;margin:70px auto;padding:0 22px 80px}small{letter-spacing:.16em;font-weight:800;color:#3285a7}h1{font-size:clamp(34px,6vw,58px);line-height:1.06;letter-spacing:-.055em;margin:14px 0 22px}p{line-height:1.75;color:#526d79}
+.panel{background:#fff;padding:30px;margin-top:30px;box-shadow:0 15px 45px #0b28390b}form{display:grid;gap:20px}
+label{display:block;font-size:12px;font-weight:800;letter-spacing:.06em}input,textarea{width:100%;padding:16px;border:1px solid #c5d5dd;margin-top:8px;font-size:16px;background:#f9fbfc;color:#102d3b;border-radius:0}textarea{font-size:13px;word-break:break-all;resize:vertical}
+button,a.action{display:inline-block;border:0;background:#0b2839;color:#fff;padding:17px 22px;font-size:12px;font-weight:800;letter-spacing:.08em;cursor:pointer;text-decoration:none}button:disabled{opacity:.55}
+#result{margin-top:26px;border-top:1px solid #d5e0e4;padding-top:25px}#message{color:#b43a29;font-size:13px;min-height:20px}
+.notice{padding:18px 22px;background:#dfeaf0;margin:24px 0;font-size:13px}.notice p{margin:0}
+a.back{display:inline-block;color:#0b2839;margin-top:16px;text-decoration:none;font-weight:800;font-size:12px}
+</style>
+</head>
+<body>
+<header><img src="/logo-gi.svg" alt="G&I Agência"><span>G&I AGÊNCIA / GALERIAS</span></header>
+<main>
+<small>CONFIGURAÇÃO ADMINISTRATIVA</small>
+<h1>CRIE SUA SENHA DE ACESSO.</h1>
+<p>Gere um código seguro diretamente no navegador. A senha não é enviada ao servidor e não será salva aqui.</p>
+<div class="panel">
+<form id="form" autocomplete="off">
+<label>SENHA DO ADMINISTRADOR<input type="password" id="password" minlength="12" required autocomplete="new-password" placeholder="No mínimo 12 caracteres"></label>
+<label>CONFIRME A SENHA<input type="password" id="confirmation" minlength="12" required autocomplete="new-password" placeholder="Digite novamente"></label>
+<button type="submit" id="generate">GERAR CÓDIGO DE ACESSO ↗</button>
+</form>
+<div id="message" role="alert"></div>
+<div id="result" hidden>
+<small>HASH GERADO</small>
+<label>ADMIN_PASSWORD_HASH<textarea id="hash" rows="4" readonly spellcheck="false"></textarea></label>
+<button id="copy" type="button">COPIAR HASH</button>
+<p>Copie somente o hash para a variável <strong>ADMIN_PASSWORD_HASH</strong> na Vercel. Salve para Production e faça um novo Redeploy.</p>
+</div>
+</div>
+<div class="notice"><p><strong>Importante:</strong> guarde sua senha original. Ela é a senha que vc vai usar no login. O hash não é a senha de login. A configuração do hash acontece manualmente na Vercel.</p></div>
+<a class="back" href="/">← VOLTAR AO SITE</a>
+</main>
+<script type="module" src="/src/setup-password.js"></script>
+</body></html>
