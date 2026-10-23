@@ -24,14 +24,21 @@ export default async function handler(req,res){
     return res.json({gallery:{title:g.title,client_name:g.client_name,description:g.description,event_date:g.event_date,cover_style:g.cover_style,cover_photo_id:g.cover_photo_id,watermark_enabled:g.watermark_enabled},photos});
   }
   if(session?.role!=='admin')return res.status(403).json({error:'Acesso restrito'});
-  if(action==='list'&&req.method==='GET')return res.json({galleries:(await query('select id,title,client_name,description,event_date,status,share_token,created_at,cover_style,cover_photo_id,watermark_enabled,case when password_hash is not null then true else false end as protected from gi_galleries order by created_at desc')).rows});
+  if(action==='list'&&req.method==='GET'){
+    const galleries=(await query("select g.id,g.title,g.client_name,g.description,g.event_date,g.status,g.share_token,g.created_at,g.cover_style,g.cover_photo_id,g.watermark_enabled,g.starred, (g.password_hash is not null) as protected, (select count(*)::int from gi_photos p where p.gallery_id=g.id) as photo_count, cp.file_name as cover_file_name,cp.object_key as cover_object_key,cp.preview_key as cover_preview_key from gi_galleries g left join gi_photos cp on cp.id=g.cover_photo_id order by g.created_at desc")).rows;
+    return res.json({galleries:await Promise.all(galleries.map(async g=>({...g,coverUrl:g.cover_preview_key?await signed('get',g.cover_preview_key):g.cover_object_key&&!/\\.hei[cf]$/i.test(g.cover_file_name||'')?await signed('get',g.cover_object_key):null,cover_object_key:undefined,cover_preview_key:undefined})))});
+  }
+  if(action==='library'&&req.method==='GET'){
+    const rows=(await query('select p.id,p.file_name,p.object_key,p.preview_key,p.gallery_id,g.title as gallery_title from gi_photos p join gi_galleries g on g.id=p.gallery_id order by p.created_at desc limit 400')).rows;
+    return res.json({photos:await Promise.all(rows.map(async p=>({id:p.id,name:p.file_name,gallery_id:p.gallery_id,gallery_title:p.gallery_title,url:await signed('get',p.object_key),previewUrl:p.preview_key?await signed('get',p.preview_key):await signed('get',p.object_key)})))});
+  }
   if(action==='create'&&req.method==='POST'){
     const title=String(b.title||'').trim().slice(0,150);if(!b.password||String(b.password).length<8)return res.status(400).json({error:'Informe uma senha com pelo menos 8 caracteres'});if(!title)return res.status(400).json({error:'Informe o evento'});
     const row=(await query('insert into gi_galleries(title,client_name,description,event_date,share_token,password_hash,cover_style) values($1,$2,$3,$4,$5,$6,$7) returning id',[title,String(b.client_name||'').slice(0,150),String(b.description||'').slice(0,1000),b.event_date||null,random(),b.password?hash(String(b.password)):null,['classic','split','minimal','cinema'].includes(b.cover_style)?b.cover_style:'classic'])).rows[0];
     return res.json(row);
   }
   if(action==='detail'&&req.method==='GET'){
-    const gallery=(await query('select id,title,client_name,description,event_date,status,share_token,cover_style,cover_photo_id,watermark_enabled,case when password_hash is not null then true else false end as protected from gi_galleries where id=$1',[req.query.id])).rows[0];
+    const gallery=(await query('select id,title,client_name,description,event_date,status,share_token,cover_style,cover_photo_id,watermark_enabled,starred,case when password_hash is not null then true else false end as protected from gi_galleries where id=$1',[req.query.id])).rows[0];
     if(!gallery)return res.status(404).json({error:'Galeria não encontrada'});
     const photos=(await query('select id,file_name,object_key,preview_key from gi_photos where gallery_id=$1 order by created_at desc',[gallery.id])).rows;
     return res.json({gallery,photos:await Promise.all(photos.map(async p=>({id:p.id,name:p.file_name,url:await signed('get',p.object_key),previewUrl:p.preview_key?await signed('get',p.preview_key):await signed('get',p.object_key)})))});
@@ -43,6 +50,7 @@ export default async function handler(req,res){
     if(b.cover_style!==undefined){if(!['classic','split','minimal','cinema'].includes(b.cover_style))return res.status(400).json({error:'Capa inválida'});await query('update gi_galleries set cover_style=$2 where id=$1',[id,b.cover_style])}
     if(b.cover_photo_id!==undefined){if(b.cover_photo_id!==null){const photo=(await query('select id from gi_photos where id=$1 and gallery_id=$2',[b.cover_photo_id,id])).rows[0];if(!photo)return res.status(400).json({error:'Foto de capa não pertence à galeria'})}await query('update gi_galleries set cover_photo_id=$2 where id=$1',[id,b.cover_photo_id])}
     if(b.watermark_enabled!==undefined){await query('update gi_galleries set watermark_enabled=$2 where id=$1',[id,Boolean(b.watermark_enabled)])}
+    if(b.starred!==undefined){await query('update gi_galleries set starred=$2 where id=$1',[id,Boolean(b.starred)])}
     return res.json({ok:true});
   }
   if(action==='sign-upload'&&req.method==='POST'){
@@ -81,7 +89,7 @@ export default async function handler(req,res){
   if(action==='delete-photo'&&req.method==='POST'){
     const p=(await query('select object_key,preview_key from gi_photos where id=$1',[b.id])).rows[0];
     if(!p)return res.status(404).json({error:'Foto não encontrada'});
-    await remove(p.object_key);if(p.preview_key)await remove(p.preview_key);await query('delete from gi_photos where id=$1',[b.id]);return res.json({ok:true});
+    await remove(p.object_key);if(p.preview_key)await remove(p.preview_key);await query('update gi_galleries set cover_photo_id=null where cover_photo_id=$1',[b.id]);await query('delete from gi_photos where id=$1',[b.id]);return res.json({ok:true});
   }
   return res.status(404).json({error:'Rota indisponível'});
  }catch(err){console.error(err);return res.status(500).json({error:'Erro interno. Verifique as configurações.'})}
