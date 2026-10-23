@@ -19,7 +19,7 @@ export function cookie(res,data){res.setHeader('Set-Cookie','gi_session='+token(
 export const config=()=>Boolean((process.env.DATABASE_URL||process.env.bc_fotos_DATABASE_URL)&&secret()&&process.env.ADMIN_PASSWORD_HASH&&process.env.AWS_ACCESS_KEY_ID&&process.env.AWS_SECRET_ACCESS_KEY&&process.env.AWS_ENDPOINT_URL_S3&&process.env.AWS_REGION);
 
 export function heicPreviewUrl(key){
- const exp=Math.floor(Date.now()/1000)+600;
+ const exp=Math.floor(Date.now()/1000)+3600;
  const sig=crypto.createHmac('sha256',secret()).update(key+':'+exp).digest('hex');
  return '/api/heic?key='+encodeURIComponent(key)+'&exp='+exp+'&sig='+sig;
 }
