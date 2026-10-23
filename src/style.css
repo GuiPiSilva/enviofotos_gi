@@ -173,3 +173,12 @@
 .public .hero.has-photo .hero-meta{color:#fff}
 @media(max-width:1100px){.collection-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:680px){.collection-grid{grid-template-columns:1fr}.studio-page-heading{align-items:start;flex-direction:column}.studio-main .admin.studio-page{padding:25px 5% 70px}.collection-toolbar select{max-width:none}.filter-date{max-width:100%}.settings-panel{padding:20px}.collection-grid.is-list .tile-image{width:110px;min-width:110px}.collection-grid.is-list .tile-body{padding:10px}.marketing-row{align-items:flex-start;flex-direction:column}}
+
+/* Existing HEIC optimization workflow */
+.legacy-optimize{display:flex;gap:18px;justify-content:space-between;align-items:center;border:1px solid #cfe3ef;background:#f0f7fa;padding:19px 22px;margin:10px 0 7px}
+.legacy-optimize strong{display:block;font:800 13px Manrope,sans-serif;color:#0c344a}
+.legacy-optimize small{display:block;color:#647e8c;font-size:11px;line-height:1.6;margin-top:7px}
+.legacy-optimize .btn{white-space:nowrap}
+#optimize-progress{color:#366a82;font-size:12px;margin:8px 0 22px}
+.preview-failed{min-height:140px;object-fit:contain;background:#e9eef0;color:#69808b}
+@media(max-width:760px){.legacy-optimize{align-items:stretch;flex-direction:column}.legacy-optimize .btn{white-space:normal}}
