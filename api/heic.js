@@ -8,7 +8,7 @@ export default async function handler(req,res){
  const key=String(req.query.key||'');
  const exp=Number(req.query.exp);
  const sig=String(req.query.sig||'');
- if(!/^[a-f0-9-]{36}\/[a-f0-9-]{36}$/.test(key)||!Number.isSafeInteger(exp)||exp<Math.floor(Date.now()/1000)||exp>Math.floor(Date.now()/1000)+900||!/^[a-f0-9]{64}$/.test(sig)||!secret())return res.status(403).end();
+ if(!/^[a-f0-9-]{36}\/[a-f0-9-]{36}$/.test(key)||!Number.isSafeInteger(exp)||exp<Math.floor(Date.now()/1000)||exp>Math.floor(Date.now()/1000)+3700||!/^[a-f0-9]{64}$/.test(sig)||!secret())return res.status(403).end();
  const expected=crypto.createHmac('sha256',secret()).update(key+':'+exp).digest('hex');
  if(!crypto.timingSafeEqual(Buffer.from(sig),Buffer.from(expected)))return res.status(403).end();
  try{
