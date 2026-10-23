@@ -125,7 +125,77 @@ async function publicGallery(password=''){
  try{const {gallery:g,photos}=await api('gallery',{token:linkToken,password});shell('<main class="public '+esc('cover-'+(g.cover_style||'classic'))+'"><section class="hero"><span class="eyebrow">UMA HISTÓRIA EM CADA IMAGEM / G&I</span><div class="hero-split"><div><h1>'+esc(g.title).toUpperCase()+'<span class="dot">.</span></h1><p>'+esc(g.description||'Momentos especiais merecem ser lembrados para sempre.')+'</p></div><div class="hero-meta"><span>GALERIA EXCLUSIVA</span><strong>'+esc(g.client_name||'SEUS MOMENTOS')+'</strong><small>'+esc(date(g.event_date))+'</small><small>'+photos.length+' FOTOS ORIGINAIS</small></div></div></section><section class="gallery-section"><div class="section-head"><div><span class="eyebrow">01 / ACERVO</span><h2>SEUS MOMENTOS</h2></div><span>ALTA RESOLUÇÃO</span></div><div class="client-actions"><span id="favorite-count">0 FAVORITAS</span><button id="favorite-filter" type="button">VER FAVORITAS</button></div><div class="masonry">'+(photos.map((p,i)=>'<div class="photo-card '+(g.watermark_enabled?'watermarked':'')+'" data-photo-id="'+esc(p.id)+'"><button type="button" class="photo-view" data-view-photo="'+i+'" aria-label="Ampliar '+esc(p.name)+'">'+photoPreview(p)+'</button><button type="button" class="favorite-btn" data-favorite="'+esc(p.id)+'" aria-label="Adicionar aos favoritos" aria-pressed="false">♡</button><a class="photo-download" href="'+esc(p.url)+'" target="_blank" rel="noopener noreferrer" download="'+esc(p.name)+'">↓ BAIXAR ORIGINAL</a></div>').join('')||'<div class="notice">Nenhuma foto enviada ainda.</div>')+'</div><p class="gallery-hint">Fotos em qualidade original, sem redimensionamento. Os links de acesso aos arquivos expiram por segurança.</p></section><section class="closing"><span class="eyebrow">G&I AGÊNCIA</span><h2>O MELHOR DOS MOMENTOS<br>MERECE FICAR.</h2></section></main>');setupClientGallery(photos);renderMissingHeicPreviews()}
  catch(e){if(e.status===401){shell('<main class="empty-hero"><span class="eyebrow">ACESSO EXCLUSIVO</span><h1>ESSA GALERIA É PRA VC<span class="dot">.</span></h1><p>Digite a senha recebida da equipe G&I para visualizar e baixar suas fotografias.</p><form id="guest-login" class="guest-form"><label>SENHA DA GALERIA<input type="password" id="guest-password" autocomplete="off" required placeholder="Digite sua senha"></label><button class="btn full" type="submit">DESBLOQUEAR FOTOS ↗</button></form>'+(password?'<p class="danger-text">Senha incorreta. Tente novamente.</p>':'')+'</main>');document.getElementById('guest-login').onsubmit=ev=>{ev.preventDefault();publicGallery(document.getElementById('guest-password').value)}}else shell('<main class="empty-hero"><h1>GALERIA INDISPONÍVEL<span class="dot">.</span></h1><p>Verifique o link ou solicite ajuda à equipe G&I.</p></main>')}}
 function login(){shell('<main class="login-wrap"><div class="login-art"><span class="eyebrow">G&I / CENTRAL DE ENTREGAS</span><h1>MEMÓRIAS.<br>MAIS QUE<br><em>IMAGENS.</em></h1><p>Galerias profissionais, qualidade original e acesso protegido.</p></div><div class="login-panel"><span class="eyebrow">ACESSO ADMINISTRATIVO</span><h2>BEM-VINDO<br>DE VOLTA.</h2><p>Entre com sua senha da equipe G&I.</p><form id="admin-login"><label>SENHA DO ADMINISTRADOR<input id="admin-password" type="password" required autocomplete="current-password" placeholder="Sua senha de acesso"></label><button type="submit" class="btn full">ENTRAR NO PAINEL ↗</button></form></div></main>',false);document.getElementById('admin-login').onsubmit=async e=>{e.preventDefault();try{await api('login',{password:document.getElementById('admin-password').value});await dashboard()}catch(err){warn(err)}}}
-async function dashboard(){try{state.galleries=(await api('list')).galleries;const gs=state.galleries;const pubs=gs.filter(g=>g.status==='published').length;shell('<main class="admin"><div class="dashboard-intro"><span class="eyebrow">G&I / CENTRAL DE ENTREGAS</span><div class="dash-title"><div><h1>GALERIAS<span class="dot">.</span></h1><p>Organize suas fotografias e compartilhe momentos únicos.</p></div><div class="actions">'+btn('+ NOVA GALERIA','new','primary')+btn('SAIR','logout','outline')+'</div></div></div><div class="stats"><div><small>TOTAL</small><strong>'+gs.length+'</strong></div><div><small>PUBLICADAS</small><strong>'+pubs+'</strong></div><div><small>EM PREPARAÇÃO</small><strong>'+(gs.length-pubs)+'</strong></div></div><div class="section-head"><div><span class="eyebrow">ACERVO G&I</span><h2>EVENTOS E CLIENTES</h2></div></div><div class="event-list">'+(gs.map((g,i)=>'<button class="event-item" data-id="'+esc(g.id)+'"><span class="event-number">'+String(i+1).padStart(2,'0')+'</span><span class="event-main"><strong>'+esc(g.title)+'</strong><small>'+esc(g.client_name)+' · '+esc(date(g.event_date))+' · '+(g.protected?'COM SENHA':'SEM SENHA')+'</small></span><span class="status '+(g.status==='published'?'published':'')+'">'+(g.status==='published'?'PUBLICADA':'RASCUNHO')+'</span><span class="event-arrow">↗</span></button>').join('')||'<div class="notice">Crie sua primeira galeria para começar.</div>')+'</div></main>',true);document.getElementById('new').onclick=createDialog;document.getElementById('logout').onclick=async()=>{await api('logout',{});login()};document.querySelectorAll('[data-id]').forEach(x=>x.onclick=()=>detail(x.dataset.id))}catch(e){warn(e);login()}}
+async function dashboard(){
+ state.nav='collections';
+ try{
+  await ensureCollections();
+  shell('<main class="admin studio-page"><div class="studio-page-heading"><div><h1>Coleções</h1><p>Gerencie suas entregas de fotografias.</p></div><div class="actions">'+btn('+ Nova coleção','new','primary')+btn('Sair','logout','outline')+'</div></div><div class="collection-toolbar"><label class="collection-search">⌕ <input id="collection-search" type="search" placeholder="Pesquisar coleções" aria-label="Pesquisar coleções"></label><select id="filter-status" aria-label="Filtrar por status"><option value="all">Todos os status</option><option value="published">Publicadas</option><option value="draft">Rascunhos</option></select><label class="filter-date">Data do evento<input id="filter-date" type="date"></label><label class="filter-check"><input id="filter-starred" type="checkbox"> Com estrela</label><select id="collection-sort" aria-label="Ordenação"><option value="new">Mais recentes</option><option value="old">Mais antigas</option><option value="name">Nome A-Z</option><option value="event">Data do evento</option></select><button class="btn outline" id="collection-view" type="button">☷ Lista</button></div><div class="collection-counter" id="collection-counter"></div><div class="collection-grid" id="collection-results"></div></main>',true);
+  const search=document.getElementById('collection-search');
+  const status=document.getElementById('filter-status');
+  const dateInput=document.getElementById('filter-date');
+  const fav=document.getElementById('filter-starred');
+  const sort=document.getElementById('collection-sort');
+  const results=document.getElementById('collection-results');
+  let view='grid';
+  function paint(){
+   const q=search.value.toLocaleLowerCase('pt-BR').trim();
+   const subset=state.galleries.filter(g=>(!q||(g.title+' '+g.client_name).toLocaleLowerCase('pt-BR').includes(q))&&(status.value==='all'||g.status===status.value)&&(!dateInput.value||String(g.event_date||'').startsWith(dateInput.value))&&(!fav.checked||g.starred));
+   subset.sort((a,b)=>sort.value==='old'?new Date(a.created_at)-new Date(b.created_at):sort.value==='name'?a.title.localeCompare(b.title,'pt-BR'):sort.value==='event'?String(b.event_date||'').localeCompare(String(a.event_date||'')):new Date(b.created_at)-new Date(a.created_at));
+   document.getElementById('collection-counter').textContent=subset.length+' coleções · '+subset.reduce((n,g)=>n+Number(g.photo_count||0),0)+' fotos';
+   results.className='collection-grid '+(view==='list'?'is-list':'');
+   results.innerHTML=subset.map(galleryTile).join('')||'<div class="collection-empty">Nenhuma coleção encontrada. Ajuste os filtros ou crie uma nova coleção.</div>';
+   wireCollectionTiles(paint);
+  }
+  for(const el of [search,status,dateInput,fav,sort])el.addEventListener('input',paint);
+  document.getElementById('collection-view').onclick=e=>{view=view==='grid'?'list':'grid';e.currentTarget.textContent=view==='grid'?'☷ Lista':'▦ Grade';paint()};
+  document.getElementById('new').onclick=createDialog;
+  document.getElementById('logout').onclick=async()=>{try{await api('logout',{});login()}catch(err){warn(err)}};
+  paint();
+ }catch(err){warn(err);login()}
+}
+async function favoritesPage(){
+ state.nav='favorites';
+ try{
+  await ensureCollections();
+  const favorites=state.galleries.filter(g=>g.starred);
+  shell('<main class="admin studio-page"><div class="studio-page-heading"><div><h1>Favoritos</h1><p>Suas coleções marcadas com estrela.</p></div></div><div class="collection-grid" id="favorite-results">'+(favorites.map(galleryTile).join('')||'<div class="collection-empty">Nenhuma coleção favorita. Marque a estrela em Coleções para vê-la aqui.</div>')+'</div></main>',true);
+  wireCollectionTiles(()=>favoritesPage());
+ }catch(err){warn(err);dashboard()}
+}
+async function libraryPage(){
+ state.nav='library';
+ try{
+  const {photos}=await api('library');
+  shell('<main class="admin studio-page"><div class="studio-page-heading"><div><h1>Biblioteca</h1><p>Fotos das suas coleções, preservadas em qualidade original.</p></div><span class="library-total">'+photos.length+' arquivos recentes</span></div><div class="collection-toolbar"><label class="collection-search">⌕ <input id="library-search" type="search" placeholder="Pesquisar foto ou coleção" aria-label="Pesquisar arquivos"></label></div><div class="library-grid" id="library-results"></div><p class="gallery-hint">Mostrando até 400 arquivos mais recentes. Para gerenciar todos os arquivos, abra cada coleção.</p></main>',true);
+  const area=document.getElementById('library-results'),search=document.getElementById('library-search');
+  function render(){
+   const q=search.value.toLocaleLowerCase('pt-BR').trim();
+   const filtered=photos.filter(p=>(p.name+' '+p.gallery_title).toLocaleLowerCase('pt-BR').includes(q));
+   area.innerHTML=filtered.map(p=>'<article class="library-item">'+photoPreview(p)+'<div class="library-item-meta"><strong title="'+esc(p.name)+'">'+esc(p.name)+'</strong><small>'+esc(p.gallery_title)+'</small><div><button class="plain" data-library-open="'+esc(p.gallery_id)+'">ABRIR COLEÇÃO</button><a href="'+esc(p.url)+'" target="_blank" rel="noopener noreferrer" download="'+esc(p.name)+'">↓ ORIGINAL</a></div></div></article>').join('')||'<div class="collection-empty">Nenhuma foto encontrada.</div>';
+   document.querySelectorAll('[data-library-open]').forEach(el=>el.onclick=()=>detail(el.dataset.libraryOpen));
+   renderMissingHeicPreviews();
+  }
+  search.oninput=render;render();
+ }catch(err){warn(err);dashboard()}
+}
+async function homepagePage(){
+ state.nav='homepage';
+ try{
+  await ensureCollections();
+  const published=state.galleries.filter(g=>g.status==='published');
+  shell('<main class="admin studio-page"><div class="studio-page-heading"><div><h1>Página inicial</h1><p>Prévia das coleções já publicadas para compartilhar com clientes.</p></div></div><div class="collection-grid">'+(published.map(galleryTile).join('')||'<div class="collection-empty">Nenhuma coleção publicada ainda. Publique uma coleção para disponibilizá-la ao cliente.</div>')+'</div></main>',true);
+  wireCollectionTiles(homepagePage);
+ }catch(err){warn(err);dashboard()}
+}
+async function marketingPage(){
+ state.nav='marketing';
+ try{
+  await ensureCollections();
+  const published=state.galleries.filter(g=>g.status==='published');
+  shell('<main class="admin studio-page"><div class="studio-page-heading"><div><h1>Compartilhar</h1><p>Copie links de acesso para enviar aos seus clientes. Compartilhe a senha separadamente.</p></div></div><div class="marketing-list">'+(published.map(g=>'<div class="marketing-row"><div><strong>'+esc(g.title)+'</strong><small>'+Number(g.photo_count||0)+' fotos · Acesso protegido</small></div><button class="btn outline" data-copy-link="'+esc(g.share_token)+'">COPIAR LINK ↗</button></div>').join('')||'<div class="collection-empty">Publique uma coleção primeiro para obter seu link.</div>')+'</div></main>',true);
+  document.querySelectorAll('[data-copy-link]').forEach(el=>el.onclick=async()=>{try{await navigator.clipboard.writeText(location.origin+'/?g='+el.dataset.copyLink);notify('Link copiado. Envie a senha da coleção separadamente.')}catch(err){warn(err)}});
+ }catch(err){warn(err);dashboard()}
+}
 function createDialog(){
  const d=document.createElement('dialog');d.className='modal wizard-modal';
  const data={title:'',client_name:'',event_date:'',description:'',password:'',cover_style:'classic'};
